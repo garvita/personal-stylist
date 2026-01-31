@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Wardrobe — Personal Stylist{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>Your Wardrobe</h1>
+    <p class="subtitle">{{ stats.total }} item{{ 's' if stats.total != 1 }} in your collection</p>
+  </div>
+  <a href="{{ url_for('add_item') }}" class="btn btn-primary">+ Add Item</a>
+</div>
+
+{% if stats.total > 0 %}
+<div class="stats-bar">
+  {% for cat in categories %}
+    {% set count = stats.get(cat, 0) %}
+    {% if count > 0 %}
+    <div class="stat-item">
+      <div class="stat-num">{{ count }}</div>
+      <div class="stat-label">{{ cat }}{{ 's' if count != 1 }}</div>
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if items %}
+<div class="grid">
+  {% for item in items %}
+  <div class="card">
+    {% if item.image_path %}
+      <img class="card-img" src="{{ url_for('serve_image', filename=item.id ~ item.image_path[-4:]) }}" alt="{{ item.name }}">
+    {% else %}
+      <div class="card-img-placeholder">
+        {% if item.category == 'top' %}&#128085;
+        {% elif item.category == 'bottom' %}&#128086;
+        {% elif item.category == 'dress' %}&#128087;
+        {% elif item.category == 'shoes' %}&#128094;
+        {% elif item.category == 'outerwear' %}&#129509;
+        {% elif item.category == 'accessory' %}&#128092;
+        {% else %}&#128090;
+        {% endif %}
+      </div>
+    {% endif %}
+    <div class="card-body">
+      <h3>{{ item.name }}</h3>
+      <p>
+        <span class="swatch" style="background:{{ item.color if item.color not in ['white','beige'] else '#f5f5dc' }};{{ 'border-color:#ccc;' if item.color in ['white','beige'] }}"></span>
+        {{ item.color | capitalize }}
+      </p>
+      <p style="margin: 0.4rem 0;">
+        <span class="tag tag-category">{{ item.category }}</span>
+      </p>
+      <p style="margin-top: 0.5rem;">
+        {% for s in item.seasons %}
+          <span class="tag tag-season">{{ s }}</span>
+        {% endfor %}
+      </p>
+      <p style="margin-top: 0.35rem;">
+        {% for o in item.occasions %}
+          <span class="tag tag-occasion">{{ o }}</span>
+        {% endfor %}
+      </p>
+      <form method="POST" action="{{ url_for('remove_item', item_id=item.id) }}" style="margin-top: 0.75rem;"
+            onsubmit="return confirm('Remove {{ item.name }}?');">
+        <button type="submit" class="btn btn-danger">Remove</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="icon">&#128090;</div>
+  <h2>Your wardrobe is empty</h2>
+  <p>Start by adding some clothing items to get outfit recommendations.</p>
+  <a href="{{ url_for('add_item') }}" class="btn btn-primary" style="margin-top: 1rem;">+ Add Your First Item</a>
+</div>
+{% endif %}
+{% endblock %}
