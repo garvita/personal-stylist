@@ -95,6 +95,7 @@ class ClothingItem:
     seasons: list[str]
     occasions: list[str]
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
+    image_path: Optional[str] = None
 
     def matches_season(self, season: str) -> bool:
         return season in self.seasons

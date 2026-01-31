@@ -61,6 +61,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=[Occasion.CASUAL.value],
         help="Suitable occasions (default: casual)",
     )
+    add_p.add_argument(
+        "--image", "-i",
+        type=str,
+        default=None,
+        help="Path to a photo of the item (jpg, png, gif, webp, bmp)",
+    )
 
     # -- remove --
     rm_p = sub.add_parser("remove", help="Remove a clothing item by ID")
@@ -144,8 +150,15 @@ def cmd_add(wardrobe: Wardrobe, args: argparse.Namespace) -> None:
         seasons=args.seasons,
         occasions=args.occasions,
     )
-    wardrobe.add_item(item)
-    print(f"Added: {item.name} [{item.id}] ({item.color} {item.category})")
+    try:
+        wardrobe.add_item(item, image_source=args.image)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Image error: {e}", file=sys.stderr)
+        sys.exit(1)
+    msg = f"Added: {item.name} [{item.id}] ({item.color} {item.category})"
+    if item.image_path:
+        msg += f"\n  Image saved: {item.image_path}"
+    print(msg)
 
 
 def cmd_remove(wardrobe: Wardrobe, args: argparse.Namespace) -> None:
@@ -170,8 +183,11 @@ def cmd_list(wardrobe: Wardrobe, args: argparse.Namespace) -> None:
     for item in items:
         seasons = ", ".join(item.seasons)
         occasions = ", ".join(item.occasions)
-        print(f"  [{item.id}] {item.name} - {item.color} {item.category} "
-              f"(seasons: {seasons} | occasions: {occasions})")
+        line = (f"  [{item.id}] {item.name} - {item.color} {item.category} "
+                f"(seasons: {seasons} | occasions: {occasions})")
+        if item.image_path:
+            line += f"\n           Image: {item.image_path}"
+        print(line)
 
 
 def cmd_stats(wardrobe: Wardrobe, _args: argparse.Namespace) -> None:

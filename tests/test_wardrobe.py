@@ -138,3 +138,79 @@ class TestWardrobe:
         w2 = Wardrobe(data_dir=tmp_path)
         assert w2.profile is not None
         assert w2.profile.name == "Test User"
+
+    def test_add_item_with_image(self, tmp_path):
+        # Create a fake image file
+        img = tmp_path / "photo.jpg"
+        img.write_bytes(b"\xff\xd8\xff fake jpeg data")
+
+        w = Wardrobe(data_dir=tmp_path / "data")
+        item = ClothingItem(
+            name="Shirt", category=Category.TOP, color=Color.WHITE,
+            seasons=[Season.SUMMER], occasions=[Occasion.CASUAL], id="img1",
+        )
+        w.add_item(item, image_source=str(img))
+        assert item.image_path is not None
+        assert Path(item.image_path).exists()
+        assert "img1.jpg" in item.image_path
+
+    def test_add_item_without_image(self, tmp_wardrobe):
+        item = ClothingItem(
+            name="Hat", category=Category.ACCESSORY, color=Color.BLACK,
+            seasons=[Season.SUMMER], occasions=[Occasion.CASUAL],
+        )
+        tmp_wardrobe.add_item(item)
+        assert item.image_path is None
+
+    def test_add_item_image_not_found(self, tmp_wardrobe):
+        item = ClothingItem(
+            name="Shirt", category=Category.TOP, color=Color.WHITE,
+            seasons=[Season.SUMMER], occasions=[Occasion.CASUAL],
+        )
+        with pytest.raises(FileNotFoundError):
+            tmp_wardrobe.add_item(item, image_source="/no/such/file.jpg")
+
+    def test_add_item_unsupported_image_format(self, tmp_path):
+        bad_file = tmp_path / "doc.pdf"
+        bad_file.write_bytes(b"not an image")
+        w = Wardrobe(data_dir=tmp_path / "data")
+        item = ClothingItem(
+            name="Shirt", category=Category.TOP, color=Color.WHITE,
+            seasons=[Season.SUMMER], occasions=[Occasion.CASUAL],
+        )
+        with pytest.raises(ValueError, match="Unsupported image format"):
+            w.add_item(item, image_source=str(bad_file))
+
+    def test_remove_item_deletes_image(self, tmp_path):
+        img = tmp_path / "shoe.png"
+        img.write_bytes(b"\x89PNG fake png data")
+
+        w = Wardrobe(data_dir=tmp_path / "data")
+        item = ClothingItem(
+            name="Shoe", category=Category.SHOES, color=Color.BLACK,
+            seasons=[Season.SUMMER], occasions=[Occasion.CASUAL], id="del1",
+        )
+        w.add_item(item, image_source=str(img))
+        stored_path = Path(item.image_path)
+        assert stored_path.exists()
+
+        w.remove_item("del1")
+        assert not stored_path.exists()
+
+    def test_image_persists_across_reload(self, tmp_path):
+        img = tmp_path / "jacket.jpg"
+        img.write_bytes(b"\xff\xd8\xff fake")
+
+        data_dir = tmp_path / "data"
+        w1 = Wardrobe(data_dir=data_dir)
+        item = ClothingItem(
+            name="Jacket", category=Category.OUTERWEAR, color=Color.NAVY,
+            seasons=[Season.FALL], occasions=[Occasion.CASUAL], id="pers1",
+        )
+        w1.add_item(item, image_source=str(img))
+
+        w2 = Wardrobe(data_dir=data_dir)
+        reloaded = w2.get_item("pers1")
+        assert reloaded is not None
+        assert reloaded.image_path is not None
+        assert Path(reloaded.image_path).exists()

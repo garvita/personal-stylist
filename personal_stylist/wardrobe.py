@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +14,9 @@ from personal_stylist.models import ClothingItem, UserProfile, Category
 DEFAULT_DATA_DIR = Path.home() / ".personal_stylist"
 WARDROBE_FILE = "wardrobe.json"
 PROFILE_FILE = "profile.json"
+IMAGES_DIR = "images"
+
+SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 
 
 class Wardrobe:
@@ -70,15 +74,44 @@ class Wardrobe:
     def items(self) -> list[ClothingItem]:
         return list(self._items)
 
-    def add_item(self, item: ClothingItem) -> ClothingItem:
+    def _images_path(self) -> Path:
+        return self.data_dir / IMAGES_DIR
+
+    def add_item(self, item: ClothingItem, image_source: Optional[str] = None) -> ClothingItem:
+        if image_source:
+            item.image_path = self._store_image(item.id, image_source)
         self._items.append(item)
         self.save()
         return item
+
+    def _store_image(self, item_id: str, source_path: str) -> str:
+        """Copy an image file into the wardrobe images directory.
+
+        Returns the path to the stored copy.
+        """
+        src = Path(source_path)
+        if not src.exists():
+            raise FileNotFoundError(f"Image not found: {source_path}")
+        ext = src.suffix.lower()
+        if ext not in SUPPORTED_IMAGE_EXTENSIONS:
+            raise ValueError(
+                f"Unsupported image format '{ext}'. "
+                f"Supported: {', '.join(sorted(SUPPORTED_IMAGE_EXTENSIONS))}"
+            )
+        images_dir = self._images_path()
+        images_dir.mkdir(parents=True, exist_ok=True)
+        dest = images_dir / f"{item_id}{ext}"
+        shutil.copy2(str(src), str(dest))
+        return str(dest)
 
     def remove_item(self, item_id: str) -> Optional[ClothingItem]:
         for i, item in enumerate(self._items):
             if item.id == item_id:
                 removed = self._items.pop(i)
+                if removed.image_path:
+                    img = Path(removed.image_path)
+                    if img.exists():
+                        img.unlink()
                 self.save()
                 return removed
         return None

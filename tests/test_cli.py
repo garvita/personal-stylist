@@ -1,5 +1,7 @@
 """Tests for the CLI interface."""
 
+from pathlib import Path
+
 import pytest
 
 from personal_stylist.cli import main
@@ -121,3 +123,44 @@ class TestCLI:
         captured = capsys.readouterr()
         assert "Top1" in captured.out
         assert "Shoe1" not in captured.out
+
+    def test_add_with_image(self, tmp_path, capsys):
+        img = tmp_path / "shirt.jpg"
+        img.write_bytes(b"\xff\xd8\xff fake jpeg")
+        data_dir = str(tmp_path / "data")
+        main(["--data-dir", data_dir, "add", "Photo Shirt",
+              "--category", "top", "--color", "blue",
+              "--image", str(img)])
+        captured = capsys.readouterr()
+        assert "Added: Photo Shirt" in captured.out
+        assert "Image saved:" in captured.out
+
+    def test_add_with_image_shows_in_list(self, tmp_path, capsys):
+        img = tmp_path / "pants.png"
+        img.write_bytes(b"\x89PNG fake png")
+        data_dir = str(tmp_path / "data")
+        main(["--data-dir", data_dir, "add", "Photo Pants",
+              "--category", "bottom", "--color", "black",
+              "--image", str(img)])
+        capsys.readouterr()
+        main(["--data-dir", data_dir, "list"])
+        captured = capsys.readouterr()
+        assert "Photo Pants" in captured.out
+        assert "Image:" in captured.out
+
+    def test_add_with_missing_image(self, data_dir, capsys):
+        with pytest.raises(SystemExit) as exc:
+            main(["--data-dir", data_dir, "add", "Bad Item",
+                  "--category", "top", "--color", "red",
+                  "--image", "/no/such/file.jpg"])
+        assert exc.value.code == 1
+
+    def test_add_with_bad_image_format(self, tmp_path, capsys):
+        bad = tmp_path / "doc.txt"
+        bad.write_bytes(b"not an image")
+        data_dir = str(tmp_path / "data")
+        with pytest.raises(SystemExit) as exc:
+            main(["--data-dir", data_dir, "add", "Bad Format",
+                  "--category", "top", "--color", "red",
+                  "--image", str(bad)])
+        assert exc.value.code == 1
