@@ -15,6 +15,7 @@ DEFAULT_DATA_DIR = Path.home() / ".personal_stylist"
 WARDROBE_FILE = "wardrobe.json"
 PROFILE_FILE = "profile.json"
 IMAGES_DIR = "images"
+PROFILE_PHOTOS_DIR = "profile_photos"
 
 SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
 
@@ -67,6 +68,65 @@ class Wardrobe:
     def set_profile(self, profile: UserProfile) -> None:
         self._profile = profile
         self.save()
+
+    # -- Profile photos --
+
+    def _profile_photos_path(self) -> Path:
+        return self.data_dir / PROFILE_PHOTOS_DIR
+
+    def add_profile_photo(self, source_path: str) -> str:
+        """Copy a photo into the profile photos directory.
+
+        Returns the stored path.
+        """
+        src = Path(source_path)
+        if not src.exists():
+            raise FileNotFoundError(f"Photo not found: {source_path}")
+        ext = src.suffix.lower()
+        if ext not in SUPPORTED_IMAGE_EXTENSIONS:
+            raise ValueError(
+                f"Unsupported image format '{ext}'. "
+                f"Supported: {', '.join(sorted(SUPPORTED_IMAGE_EXTENSIONS))}"
+            )
+        photos_dir = self._profile_photos_path()
+        photos_dir.mkdir(parents=True, exist_ok=True)
+
+        if not self._profile:
+            self._profile = UserProfile(name="User")
+
+        idx = len(self._profile.profile_photos) + 1
+        dest = photos_dir / f"profile_{idx}{ext}"
+        shutil.copy2(str(src), str(dest))
+        stored = str(dest)
+        self._profile.profile_photos.append(stored)
+        self.save()
+        return stored
+
+    def remove_profile_photo(self, photo_path: str) -> bool:
+        """Remove a profile photo by path."""
+        if not self._profile:
+            return False
+        if photo_path in self._profile.profile_photos:
+            self._profile.profile_photos.remove(photo_path)
+            p = Path(photo_path)
+            if p.exists():
+                p.unlink()
+            self.save()
+            return True
+        return False
+
+    def clear_profile_photos(self) -> int:
+        """Remove all profile photos. Returns count of photos removed."""
+        if not self._profile:
+            return 0
+        count = len(self._profile.profile_photos)
+        for photo_path in self._profile.profile_photos:
+            p = Path(photo_path)
+            if p.exists():
+                p.unlink()
+        self._profile.profile_photos = []
+        self.save()
+        return count
 
     # -- Item management --
 

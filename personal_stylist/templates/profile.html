@@ -5,12 +5,14 @@
 <div class="page-header">
   <div>
     <h1>Style Profile</h1>
-    <p class="subtitle">Set your preferences to personalize outfit recommendations</p>
+    <p class="subtitle">Set your preferences and discover your personal color palette</p>
   </div>
 </div>
 
-<div class="card" style="max-width: 640px;">
+<!-- ============ BASIC PROFILE ============ -->
+<div class="card" style="max-width: 640px; margin-bottom: 2rem;">
   <div class="card-body" style="padding: 1.5rem;">
+    <h2>Preferences</h2>
     <form method="POST">
       <div class="form-group">
         <label for="name">Your Name</label>
@@ -59,8 +61,198 @@
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Save Profile</button>
+      <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Save Preferences</button>
     </form>
   </div>
+</div>
+
+<!-- ============ COLOR ANALYSIS SECTION ============ -->
+<div style="max-width: 800px;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+    <div>
+      <h2 style="margin-bottom: 0.25rem;">Personal Color Analysis</h2>
+      <p class="subtitle" style="margin-bottom: 0;">Upload photos to discover which colors make you shine</p>
+    </div>
+    {% if analysis %}
+    <span class="tag tag-season" style="font-size: 0.85rem; padding: 0.35rem 0.8rem;">
+      {{ analysis.sub_season or analysis.season }}
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Photo Upload -->
+  <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-body" style="padding: 1.5rem;">
+      <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Your Photos</h3>
+
+      {% if photo_filenames %}
+      <div class="photo-grid" style="margin-bottom: 1.25rem;">
+        {% for fname in photo_filenames %}
+        <div class="photo-thumb">
+          <img src="{{ url_for('serve_profile_photo', filename=fname) }}" alt="Profile photo">
+          <form method="POST" action="{{ url_for('remove_profile_photo') }}" class="photo-remove-form">
+            <input type="hidden" name="photo_path" value="{{ profile.profile_photos[loop.index0] }}">
+            <button type="submit" class="photo-remove-btn" title="Remove photo">&times;</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="photo-tips">
+        <p class="tips-title">Tips for best results:</p>
+        <ul>
+          <li>Use <strong>natural lighting</strong> — near a window or outdoors works best</li>
+          <li>Show your <strong>face, neck, and upper body</strong> clearly</li>
+          <li>No filters — the AI needs to see your <strong>natural coloring</strong></li>
+          <li>Include <strong>3-10 photos</strong> from various angles for accuracy</li>
+          <li>Remove glasses if possible and pull hair away from your face</li>
+        </ul>
+      </div>
+
+      <form method="POST" action="{{ url_for('upload_profile_photos') }}" enctype="multipart/form-data"
+            style="margin-top: 1rem;">
+        <div class="form-group" style="margin-bottom: 0.75rem;">
+          <input type="file" name="photos" id="photos" multiple
+                 accept=".jpg,.jpeg,.png,.gif,.webp,.bmp">
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button type="submit" class="btn btn-primary">Upload Photos</button>
+        </div>
+      </form>
+      {% if photo_filenames %}
+      <form method="POST" action="{{ url_for('clear_profile_photos') }}" style="margin-top: 0.75rem;">
+        <button type="submit" class="btn btn-danger"
+                onclick="return confirm('Remove all profile photos?');">Clear All Photos</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Run Analysis -->
+  {% if photo_filenames %}
+  <div class="card" style="margin-bottom: 1.5rem;">
+    <div class="card-body" style="padding: 1.5rem;">
+      <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">Run Color Analysis</h3>
+      <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+        {{ photo_filenames | length }} photo{{ 's' if photo_filenames | length != 1 }} ready for analysis.
+        {% if analysis %}Your last analysis was on {{ analysis.analysis_date }}.{% endif %}
+      </p>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <form method="POST" action="{{ url_for('analyze_colors_route') }}">
+          <input type="hidden" name="use_mock" value="0">
+          <button type="submit" class="btn btn-primary">
+            {{ 'Re-analyze with AI' if analysis else 'Analyze with AI' }}
+          </button>
+        </form>
+        <form method="POST" action="{{ url_for('analyze_colors_route') }}">
+          <input type="hidden" name="use_mock" value="1">
+          <button type="submit" class="btn btn-outline">
+            Try Demo Mode
+          </button>
+        </form>
+      </div>
+      <p style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.75rem;">
+        AI analysis requires an ANTHROPIC_API_KEY environment variable. Demo mode shows sample results.
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Analysis Results -->
+  {% if analysis %}
+  <div class="analysis-results">
+    <!-- Season Card -->
+    <div class="card season-card" style="margin-bottom: 1.5rem;">
+      <div class="card-body" style="padding: 2rem; text-align: center;">
+        <div class="season-icon">
+          {% if 'Spring' in (analysis.sub_season or analysis.season) %}&#127800;
+          {% elif 'Summer' in (analysis.sub_season or analysis.season) %}&#9728;&#65039;
+          {% elif 'Autumn' in (analysis.sub_season or analysis.season) %}&#127810;
+          {% elif 'Winter' in (analysis.sub_season or analysis.season) %}&#10052;&#65039;
+          {% endif %}
+        </div>
+        <h2 style="font-size: 1.5rem; margin-bottom: 0.25rem;">{{ analysis.sub_season or analysis.season }}</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 0.75rem;">
+          Undertone: <strong>{{ analysis.undertone | capitalize }}</strong>
+          &nbsp;&bull;&nbsp;
+          Confidence: <strong>{{ analysis.confidence | capitalize }}</strong>
+        </p>
+        <p style="max-width: 540px; margin: 0 auto; font-size: 0.9rem; line-height: 1.6;">
+          {{ season_descriptions.get(analysis.sub_season, season_descriptions.get(analysis.season, '')) }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Explanation -->
+    {% if analysis.explanation %}
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card-body" style="padding: 1.5rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.5rem;">About Your Coloring</h3>
+        <p style="font-size: 0.9rem; line-height: 1.7; color: var(--text-muted);">{{ analysis.explanation }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Recommended Colors -->
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card-body" style="padding: 1.5rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Your Best Colors</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          These colors will complement your natural coloring and make you look radiant.
+        </p>
+        <div class="palette-grid">
+          {% for hex in analysis.recommended_colors %}
+          <div class="palette-swatch" style="background: {{ hex }};" title="{{ hex }}">
+            <span class="palette-hex">{{ hex }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Colors to Avoid -->
+    {% if analysis.avoid_colors %}
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card-body" style="padding: 1.5rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Colors to Avoid</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+          These colors may wash you out or clash with your natural coloring.
+        </p>
+        <div class="palette-grid">
+          {% for hex in analysis.avoid_colors %}
+          <div class="palette-swatch avoid" style="background: {{ hex }};" title="{{ hex }}">
+            <span class="palette-hex">{{ hex }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Best Metals -->
+    {% if analysis.best_metals %}
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card-body" style="padding: 1.5rem;">
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">Best Metals for You</h3>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          {% for metal in analysis.best_metals %}
+          <div class="metal-chip metal-{{ metal | replace(' ', '-') | lower }}">
+            {{ metal | capitalize }}
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% elif not photo_filenames %}
+  <div class="empty-state" style="padding: 3rem 2rem;">
+    <div class="icon">&#127912;</div>
+    <h2>Discover Your Colors</h2>
+    <p>Upload a few photos of yourself to get a personalized color analysis.</p>
+    <p style="margin-top: 0.5rem; font-size: 0.85rem;">You can always skip this and come back later.</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

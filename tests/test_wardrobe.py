@@ -9,6 +9,7 @@ from personal_stylist.models import (
     Category,
     ClothingItem,
     Color,
+    ColorAnalysis,
     Occasion,
     Season,
     UserProfile,
@@ -214,3 +215,104 @@ class TestWardrobe:
         assert reloaded is not None
         assert reloaded.image_path is not None
         assert Path(reloaded.image_path).exists()
+
+
+class TestProfilePhotos:
+    def test_add_profile_photo(self, tmp_path):
+        img = tmp_path / "selfie.jpg"
+        img.write_bytes(b"\xff\xd8\xff fake")
+        w = Wardrobe(data_dir=tmp_path / "data")
+        w.set_profile(UserProfile(name="Test"))
+        stored = w.add_profile_photo(str(img))
+        assert Path(stored).exists()
+        assert len(w.profile.profile_photos) == 1
+
+    def test_add_multiple_photos(self, tmp_path):
+        data_dir = tmp_path / "data"
+        w = Wardrobe(data_dir=data_dir)
+        w.set_profile(UserProfile(name="Test"))
+        for i in range(3):
+            img = tmp_path / f"photo{i}.jpg"
+            img.write_bytes(b"\xff\xd8\xff fake")
+            w.add_profile_photo(str(img))
+        assert len(w.profile.profile_photos) == 3
+
+    def test_add_photo_creates_profile_if_missing(self, tmp_path):
+        img = tmp_path / "photo.jpg"
+        img.write_bytes(b"\xff\xd8\xff fake")
+        w = Wardrobe(data_dir=tmp_path / "data")
+        assert w.profile is None
+        w.add_profile_photo(str(img))
+        assert w.profile is not None
+        assert len(w.profile.profile_photos) == 1
+
+    def test_add_photo_bad_format(self, tmp_path):
+        bad = tmp_path / "doc.pdf"
+        bad.write_bytes(b"not image")
+        w = Wardrobe(data_dir=tmp_path / "data")
+        w.set_profile(UserProfile(name="Test"))
+        with pytest.raises(ValueError):
+            w.add_profile_photo(str(bad))
+
+    def test_add_photo_not_found(self, tmp_path):
+        w = Wardrobe(data_dir=tmp_path / "data")
+        w.set_profile(UserProfile(name="Test"))
+        with pytest.raises(FileNotFoundError):
+            w.add_profile_photo("/no/such/file.jpg")
+
+    def test_remove_profile_photo(self, tmp_path):
+        img = tmp_path / "photo.jpg"
+        img.write_bytes(b"\xff\xd8\xff fake")
+        w = Wardrobe(data_dir=tmp_path / "data")
+        w.set_profile(UserProfile(name="Test"))
+        stored = w.add_profile_photo(str(img))
+        assert w.remove_profile_photo(stored) is True
+        assert len(w.profile.profile_photos) == 0
+        assert not Path(stored).exists()
+
+    def test_remove_nonexistent_photo(self, tmp_path):
+        w = Wardrobe(data_dir=tmp_path / "data")
+        w.set_profile(UserProfile(name="Test"))
+        assert w.remove_profile_photo("/bogus") is False
+
+    def test_clear_profile_photos(self, tmp_path):
+        data_dir = tmp_path / "data"
+        w = Wardrobe(data_dir=data_dir)
+        w.set_profile(UserProfile(name="Test"))
+        paths = []
+        for i in range(3):
+            img = tmp_path / f"p{i}.jpg"
+            img.write_bytes(b"\xff\xd8\xff")
+            paths.append(w.add_profile_photo(str(img)))
+        count = w.clear_profile_photos()
+        assert count == 3
+        assert len(w.profile.profile_photos) == 0
+        for p in paths:
+            assert not Path(p).exists()
+
+    def test_profile_photos_persist(self, tmp_path):
+        img = tmp_path / "photo.jpg"
+        img.write_bytes(b"\xff\xd8\xff fake")
+        data_dir = tmp_path / "data"
+        w1 = Wardrobe(data_dir=data_dir)
+        w1.set_profile(UserProfile(name="Test"))
+        w1.add_profile_photo(str(img))
+        w2 = Wardrobe(data_dir=data_dir)
+        assert len(w2.profile.profile_photos) == 1
+
+    def test_color_analysis_persists(self, tmp_path):
+        data_dir = tmp_path / "data"
+        w1 = Wardrobe(data_dir=data_dir)
+        prof = UserProfile(name="Test")
+        analysis = ColorAnalysis(
+            season="Winter", sub_season="True Winter",
+            undertone="cool", recommended_colors=["#000000"],
+        )
+        prof.set_color_analysis(analysis)
+        w1.set_profile(prof)
+
+        w2 = Wardrobe(data_dir=data_dir)
+        loaded = w2.profile.get_color_analysis()
+        assert loaded is not None
+        assert loaded.season == "Winter"
+        assert loaded.sub_season == "True Winter"

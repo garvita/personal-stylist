@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pytest
 
-from personal_stylist.models import Category, ClothingItem, Color, Occasion, Season
+from personal_stylist.analyzer import analyze_colors_mock
+from personal_stylist.models import (
+    Category, ClothingItem, Color, ColorAnalysis, Occasion, Season, UserProfile,
+)
 from personal_stylist.wardrobe import Wardrobe
 from personal_stylist.webapp import create_app
 
@@ -185,3 +188,152 @@ class TestProfile:
         }, follow_redirects=True)
         resp = client.get("/profile")
         assert b"Bob" in resp.data
+
+
+class TestProfilePhotos:
+    def test_upload_photo(self, tmp_path):
+        app = create_app(data_dir=tmp_path)
+        app.config["TESTING"] = True
+        client = app.test_client()
+        # Set up profile first
+        client.post("/profile", data={"name": "Tester"}, follow_redirects=True)
+        resp = client.post(
+            "/profile/upload-photos",
+            data={"photos": (io.BytesIO(b"\xff\xd8\xff fake"), "face.jpg")},
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"Uploaded 1 photo" in resp.data
+
+    def test_upload_multiple_photos(self, tmp_path):
+        app = create_app(data_dir=tmp_path)
+        app.config["TESTING"] = True
+        client = app.test_client()
+        client.post("/profile", data={"name": "Tester"}, follow_redirects=True)
+        resp = client.post(
+            "/profile/upload-photos",
+            data={
+                "photos": [
+                    (io.BytesIO(b"\xff\xd8\xff"), "a.jpg"),
+                    (io.BytesIO(b"\xff\xd8\xff"), "b.jpg"),
+                ],
+            },
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"Uploaded 2 photos" in resp.data
+
+    def test_upload_no_files(self, client):
+        resp = client.post(
+            "/profile/upload-photos",
+            data={},
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"select at least one photo" in resp.data
+
+    def test_clear_photos(self, tmp_path):
+        app = create_app(data_dir=tmp_path)
+        app.config["TESTING"] = True
+        client = app.test_client()
+        client.post("/profile", data={"name": "Tester"}, follow_redirects=True)
+        client.post(
+            "/profile/upload-photos",
+            data={"photos": (io.BytesIO(b"\xff\xd8\xff"), "face.jpg")},
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+        resp = client.post("/profile/clear-photos", follow_redirects=True)
+        assert resp.status_code == 200
+        assert b"Removed 1 photo" in resp.data
+
+    def test_clear_no_photos(self, client):
+        resp = client.post("/profile/clear-photos", follow_redirects=True)
+        assert resp.status_code == 200
+        assert b"No photos to remove" in resp.data
+
+
+class TestColorAnalysis:
+    def _setup_with_photos(self, tmp_path):
+        app = create_app(data_dir=tmp_path, analyzer_func=analyze_colors_mock)
+        app.config["TESTING"] = True
+        client = app.test_client()
+        client.post("/profile", data={"name": "Tester"}, follow_redirects=True)
+        client.post(
+            "/profile/upload-photos",
+            data={"photos": (io.BytesIO(b"\xff\xd8\xff fake"), "face.jpg")},
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+        return client
+
+    def test_analyze_with_mock(self, tmp_path):
+        client = self._setup_with_photos(tmp_path)
+        resp = client.post(
+            "/profile/analyze",
+            data={"use_mock": "1"},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"Color analysis complete" in resp.data
+        assert b"Soft Autumn" in resp.data
+
+    def test_analyze_shows_palette(self, tmp_path):
+        client = self._setup_with_photos(tmp_path)
+        client.post("/profile/analyze", data={"use_mock": "1"}, follow_redirects=True)
+        resp = client.get("/profile")
+        assert resp.status_code == 200
+        assert b"Your Best Colors" in resp.data
+        assert b"Colors to Avoid" in resp.data
+        assert b"Best Metals" in resp.data
+
+    def test_analyze_shows_season(self, tmp_path):
+        client = self._setup_with_photos(tmp_path)
+        client.post("/profile/analyze", data={"use_mock": "1"}, follow_redirects=True)
+        resp = client.get("/profile")
+        assert b"Undertone" in resp.data
+        assert b"Confidence" in resp.data
+
+    def test_analyze_no_photos(self, client):
+        resp = client.post(
+            "/profile/analyze",
+            data={"use_mock": "1"},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"Upload at least one photo" in resp.data
+
+    def test_analyze_no_api_key(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        app = create_app(data_dir=tmp_path)
+        app.config["TESTING"] = True
+        client = app.test_client()
+        client.post("/profile", data={"name": "Tester"}, follow_redirects=True)
+        client.post(
+            "/profile/upload-photos",
+            data={"photos": (io.BytesIO(b"\xff\xd8\xff"), "face.jpg")},
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+        resp = client.post(
+            "/profile/analyze",
+            data={"use_mock": "0"},
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"ANTHROPIC_API_KEY" in resp.data
+
+    def test_profile_preserves_analysis_on_update(self, tmp_path):
+        client = self._setup_with_photos(tmp_path)
+        client.post("/profile/analyze", data={"use_mock": "1"}, follow_redirects=True)
+        # Update profile preferences
+        client.post("/profile", data={
+            "name": "Updated",
+            "preferred_colors": ["navy"],
+        }, follow_redirects=True)
+        resp = client.get("/profile")
+        assert b"Updated" in resp.data
+        assert b"Soft Autumn" in resp.data  # analysis preserved

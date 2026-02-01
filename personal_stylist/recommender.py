@@ -17,11 +17,45 @@ from typing import Optional
 from personal_stylist.models import (
     Category,
     ClothingItem,
+    ColorAnalysis,
     Outfit,
     UserProfile,
     colors_coordinate,
 )
 from personal_stylist.wardrobe import Wardrobe
+
+
+# Map clothing color names to representative hex codes for palette matching
+_COLOR_HEX_MAP: dict[str, str] = {
+    "black": "#000000", "white": "#FFFFFF", "gray": "#808080",
+    "navy": "#000080", "blue": "#4169E1", "red": "#DC143C",
+    "green": "#228B22", "brown": "#8B4513", "beige": "#F5F5DC",
+    "pink": "#FFB6C1", "yellow": "#FFD700", "orange": "#FF8C00",
+    "purple": "#800080", "olive": "#808000", "burgundy": "#800020",
+    "teal": "#008080",
+}
+
+
+def _hex_to_rgb(hex_code: str) -> tuple[int, int, int]:
+    h = hex_code.lstrip("#")
+    if len(h) == 3:
+        h = h[0]*2 + h[1]*2 + h[2]*2
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+
+def _color_distance(hex1: str, hex2: str) -> float:
+    """Simple Euclidean distance in RGB space (0-441)."""
+    r1, g1, b1 = _hex_to_rgb(hex1)
+    r2, g2, b2 = _hex_to_rgb(hex2)
+    return ((r1-r2)**2 + (g1-g2)**2 + (b1-b2)**2) ** 0.5
+
+
+def color_in_palette(color_name: str, palette_hexes: list[str], threshold: float = 120.0) -> bool:
+    """Check if a clothing color name is close to any hex in a palette."""
+    item_hex = _COLOR_HEX_MAP.get(color_name)
+    if not item_hex or not palette_hexes:
+        return False
+    return any(_color_distance(item_hex, h) < threshold for h in palette_hexes)
 
 
 class OutfitRecommender:
@@ -147,7 +181,24 @@ class OutfitRecommender:
             )
             score += (pref_match / len(items)) * 5.0
 
-        return min(score, 100.0)
+        # 6. Color analysis palette bonus/penalty (up to +10 / -8 points)
+        if profile:
+            analysis = profile.get_color_analysis()
+            if analysis and analysis.recommended_colors:
+                palette_match = sum(
+                    1 for i in items
+                    if color_in_palette(i.color, analysis.recommended_colors)
+                )
+                score += (palette_match / len(items)) * 10.0
+
+                if analysis.avoid_colors:
+                    avoid_match = sum(
+                        1 for i in items
+                        if color_in_palette(i.color, analysis.avoid_colors)
+                    )
+                    score -= (avoid_match / len(items)) * 8.0
+
+        return max(min(score, 100.0), 0.0)
 
     def _score_color_coordination(self, items: list[ClothingItem]) -> float:
         """Score how well item colors coordinate (0.0 to 1.0)."""

@@ -142,16 +142,69 @@ class Outfit:
 
 
 @dataclass
+class ColorAnalysis:
+    """Result of AI-powered personal color analysis."""
+    season: str = ""
+    sub_season: str = ""
+    undertone: str = ""
+    recommended_colors: list[str] = field(default_factory=list)
+    avoid_colors: list[str] = field(default_factory=list)
+    best_metals: list[str] = field(default_factory=list)
+    confidence: str = ""
+    explanation: str = ""
+    analysis_date: str = ""
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ColorAnalysis:
+        valid = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
+        return cls(**valid)
+
+
+SEASON_DESCRIPTIONS: dict[str, str] = {
+    "Spring": "Warm and bright. You look best in clear, warm colors with yellow undertones — coral, peach, warm greens, and golden tones.",
+    "Summer": "Cool and muted. You're flattered by soft, cool colors with blue undertones — dusty rose, lavender, powder blue, and soft grays.",
+    "Autumn": "Warm and muted. Earth tones are your best friend — olive, burnt orange, warm brown, mustard, and rich terracotta.",
+    "Winter": "Cool and bright. You shine in bold, high-contrast colors — pure white, black, jewel tones like emerald, sapphire, and ruby.",
+    "Soft Summer": "A gentle, muted cool palette. Dusty pastels, soft grays, and muted blues — nothing too bright or warm.",
+    "Soft Autumn": "Warm but understated. Muted earth tones, sage green, soft coral, and warm taupes.",
+    "True Summer": "The essence of cool and muted. Soft pinks, cool blues, and gentle lavender are your power colors.",
+    "True Winter": "High contrast and cool. Stark white, jet black, and vivid jewel tones like royal blue and true red.",
+    "Light Summer": "Light, cool, and airy. Pastel blues, soft pinks, light grays, and icy lavender.",
+    "Light Spring": "Warm and delicate. Soft peach, light coral, warm ivory, and clear pastels with a warm glow.",
+    "True Spring": "Warm and vivid. Bright coral, warm yellow, fresh green, and golden tones.",
+    "Bright Spring": "High contrast with warmth. Clear, bright colors — vivid turquoise, hot pink, bright orange.",
+    "Deep Autumn": "Rich and warm. Deep olive, chocolate brown, warm burgundy, and rich amber.",
+    "Warm Autumn": "Quintessentially warm. Golden brown, pumpkin, warm teal, and caramel tones.",
+    "Deep Winter": "Bold and dramatic. Deep jewel tones — midnight blue, dark emerald, rich purple, and bright true red.",
+    "Bright Winter": "Cool with electric intensity. Vivid magenta, bright blue, stark black and white, and icy jewel tones.",
+}
+
+
+@dataclass
 class UserProfile:
     """User style preferences."""
     name: str
     preferred_colors: list[str] = field(default_factory=list)
     preferred_occasions: list[str] = field(default_factory=list)
     preferred_seasons: list[str] = field(default_factory=list)
+    profile_photos: list[str] = field(default_factory=list)
+    color_analysis: Optional[dict] = None
+
+    def get_color_analysis(self) -> Optional[ColorAnalysis]:
+        if self.color_analysis:
+            return ColorAnalysis.from_dict(self.color_analysis)
+        return None
+
+    def set_color_analysis(self, analysis: ColorAnalysis) -> None:
+        self.color_analysis = analysis.to_dict()
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict) -> UserProfile:
-        return cls(**data)
+        valid = {k: v for k, v in data.items() if k in cls.__dataclass_fields__}
+        return cls(**valid)
