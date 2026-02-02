@@ -5,7 +5,7 @@
 <div class="page-header">
   <div>
     <h1>Add to Wardrobe</h1>
-    <p class="subtitle">Add a new clothing item with an optional photo</p>
+    <p class="subtitle">Upload a photo of your clothing item</p>
   </div>
 </div>
 
@@ -13,56 +13,18 @@
   <div class="card-body" style="padding: 1.5rem;">
     <form method="POST" enctype="multipart/form-data">
       <div class="form-group">
-        <label for="name">Item Name</label>
-        <input type="text" id="name" name="name" placeholder="e.g. Blue Oxford Shirt" required>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label for="category">Category</label>
-          <select id="category" name="category" required>
-            <option value="">Select&hellip;</option>
-            {% for cat in categories %}
-              <option value="{{ cat }}">{{ cat | capitalize }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="color">Color</label>
-          <select id="color" name="color" required>
-            <option value="">Select&hellip;</option>
-            {% for c in colors %}
-              <option value="{{ c }}">{{ c | capitalize }}</option>
-            {% endfor %}
-          </select>
-        </div>
+        <label for="image">Photo</label>
+        <input type="file" id="image" name="image" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" required>
       </div>
 
       <div class="form-group">
-        <label>Seasons</label>
-        <div class="checkbox-grid">
-          {% for s in seasons %}
-          <label>
-            <input type="checkbox" name="seasons" value="{{ s }}"> {{ s | capitalize }}
-          </label>
+        <label for="category">Category</label>
+        <select id="category" name="category" required>
+          <option value="">Select&hellip;</option>
+          {% for cat in categories %}
+            <option value="{{ cat }}">{{ cat | capitalize }}</option>
           {% endfor %}
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Occasions</label>
-        <div class="checkbox-grid">
-          {% for o in occasions %}
-          <label>
-            <input type="checkbox" name="occasions" value="{{ o }}"> {{ o | capitalize }}
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label for="image">Photo (optional)</label>
-        <input type="file" id="image" name="image" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp">
+        </select>
       </div>
 
       <div style="display: flex; gap: 0.75rem; margin-top: 1.5rem;">

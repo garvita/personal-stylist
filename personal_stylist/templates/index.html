@@ -44,22 +44,8 @@
     {% endif %}
     <div class="card-body">
       <h3>{{ item.name }}</h3>
-      <p>
-        <span class="swatch" style="background:{{ item.color if item.color not in ['white','beige'] else '#f5f5dc' }};{{ 'border-color:#ccc;' if item.color in ['white','beige'] }}"></span>
-        {{ item.color | capitalize }}
-      </p>
       <p style="margin: 0.4rem 0;">
         <span class="tag tag-category">{{ item.category }}</span>
-      </p>
-      <p style="margin-top: 0.5rem;">
-        {% for s in item.seasons %}
-          <span class="tag tag-season">{{ s }}</span>
-        {% endfor %}
-      </p>
-      <p style="margin-top: 0.35rem;">
-        {% for o in item.occasions %}
-          <span class="tag tag-occasion">{{ o }}</span>
-        {% endfor %}
       </p>
       <form method="POST" action="{{ url_for('remove_item', item_id=item.id) }}" style="margin-top: 0.75rem;"
             onsubmit="return confirm('Remove {{ item.name }}?');">

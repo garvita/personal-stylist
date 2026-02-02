@@ -79,35 +79,10 @@ class TestAddItem:
         assert resp.status_code == 200
         assert b"Add to Wardrobe" in resp.data
 
-    def test_add_item_post(self, client):
-        resp = client.post("/add", data={
-            "name": "Red Scarf",
-            "category": "accessory",
-            "color": "red",
-            "seasons": ["fall", "winter"],
-            "occasions": ["casual"],
-        }, follow_redirects=True)
-        assert resp.status_code == 200
-        assert b"Added Red Scarf" in resp.data
-        assert b"Red Scarf" in resp.data
-
-    def test_add_item_missing_name(self, client):
-        resp = client.post("/add", data={
-            "name": "",
-            "category": "top",
-            "color": "blue",
-        })
-        assert resp.status_code == 200
-        assert b"required" in resp.data
-
     def test_add_item_with_image(self, client):
         data = {
-            "name": "Photo Shirt",
             "category": "top",
-            "color": "blue",
-            "seasons": ["summer"],
-            "occasions": ["casual"],
-            "image": (io.BytesIO(b"\xff\xd8\xff fake jpeg"), "shirt.jpg"),
+            "image": (io.BytesIO(b"\xff\xd8\xff fake jpeg"), "blue_shirt.jpg"),
         }
         resp = client.post(
             "/add", data=data,
@@ -115,16 +90,39 @@ class TestAddItem:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert b"Added Photo Shirt" in resp.data
+        assert b"Added Blue Shirt" in resp.data
 
-    def test_add_defaults_seasons_occasions(self, client):
+    def test_add_item_missing_image(self, client):
         resp = client.post("/add", data={
-            "name": "Basic Top",
             "category": "top",
-            "color": "black",
-        }, follow_redirects=True)
+        }, content_type="multipart/form-data")
         assert resp.status_code == 200
-        assert b"Added Basic Top" in resp.data
+        assert b"required" in resp.data
+
+    def test_add_item_missing_category(self, client):
+        data = {
+            "category": "",
+            "image": (io.BytesIO(b"\xff\xd8\xff fake jpeg"), "shirt.jpg"),
+        }
+        resp = client.post(
+            "/add", data=data,
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 200
+        assert b"required" in resp.data
+
+    def test_name_derived_from_filename(self, client):
+        data = {
+            "category": "shoes",
+            "image": (io.BytesIO(b"\xff\xd8\xff fake"), "red_running-shoes.jpg"),
+        }
+        resp = client.post(
+            "/add", data=data,
+            content_type="multipart/form-data",
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        assert b"Red Running Shoes" in resp.data
 
 
 class TestRemoveItem:

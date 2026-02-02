@@ -79,37 +79,30 @@ def create_app(
     @app.route("/add", methods=["GET", "POST"])
     def add_item():
         if request.method == "POST":
-            name = request.form.get("name", "").strip()
             category = request.form.get("category", "")
-            color = request.form.get("color", "")
-            seasons = request.form.getlist("seasons")
-            occasions = request.form.getlist("occasions")
+            uploaded = request.files.get("image")
 
-            if not name or not category or not color:
-                flash("Name, category, and color are required.", "error")
+            if not category or not uploaded or not uploaded.filename:
+                flash("A photo and category are required.", "error")
                 return render_template("add.html")
 
-            if not seasons:
-                seasons = [s.value for s in Season]
-            if not occasions:
-                occasions = [Occasion.CASUAL.value]
+            # Derive item name from the original filename
+            original = Path(uploaded.filename).stem
+            name = original.replace("_", " ").replace("-", " ").title()
 
             item = ClothingItem(
                 name=name,
                 category=category,
-                color=color,
-                seasons=seasons,
-                occasions=occasions,
+                color=Color.BLACK.value,
+                seasons=[s.value for s in Season],
+                occasions=[Occasion.CASUAL.value],
             )
 
-            image_source = None
-            uploaded = request.files.get("image")
-            if uploaded and uploaded.filename:
-                tmp_path = wardrobe.data_dir / "tmp_upload"
-                tmp_path.mkdir(parents=True, exist_ok=True)
-                tmp_file = tmp_path / uploaded.filename
-                uploaded.save(str(tmp_file))
-                image_source = str(tmp_file)
+            tmp_path = wardrobe.data_dir / "tmp_upload"
+            tmp_path.mkdir(parents=True, exist_ok=True)
+            tmp_file = tmp_path / uploaded.filename
+            uploaded.save(str(tmp_file))
+            image_source = str(tmp_file)
 
             try:
                 wardrobe.add_item(item, image_source=image_source)
@@ -117,10 +110,9 @@ def create_app(
                 flash(f"Image error: {e}", "error")
                 return render_template("add.html")
             finally:
-                if image_source:
-                    tmp = Path(image_source)
-                    if tmp.exists():
-                        tmp.unlink()
+                tmp = Path(image_source)
+                if tmp.exists():
+                    tmp.unlink()
 
             flash(f"Added {item.name} to your wardrobe!", "success")
             return redirect(url_for("index"))
